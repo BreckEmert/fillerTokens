@@ -21,32 +21,26 @@ class Match3():
         return inputs, solution
     
     def get_corrupted_instance(self, corruption_rate=4/3, redo=True, dense=True, probabilistic=True, serial=False):
-        # 1) Start with a True instance
-        inputs, _ = self.get_true_instance(dense=False)
-
-        # 2) Flip about {corruption_rate} digits
-        flips = self.random.poisson(lam=corruption_rate) + 1
-        for _ in range(flips):
-            r = self.random.integers(0, self.length)
-            c = self.random.integers(0, self.dimension)
-            old = inputs[r, c]
-            inputs[r, c] = self.random.integers(1, self.mod) + old
-            inputs[r, c] %= self.mod
-
-        # 3) Keep trying until False
-        while self.solve(inputs):
-            r = self.random.integers(0, self.length)
-            c = self.random.integers(0, self.dimension)
-            inputs[r, c] = self.random.integers(0, self.mod)
-
-        if serial:
+        inputs = self.random.integers(0, self.mod, size=(2,self.dimension))
+        inverses = np.expand_dims(np.mod(self.mod-np.sum(inputs,axis=0), self.mod),0)
+        inputs = np.concatenate([inputs, inverses], axis=0)
+        corruptions = self.random.geometric(1/corruption_rate)
+        corruptions = np.minimum(corruptions, 3)
+        columns = self.random.integers(0, self.dimension, size=corruptions)
+        inputs[:corruptions,columns] = self.random.integers(0, self.mod, size=(corruptions,))
+        rest = self.random.integers(0, self.mod, size=(self.length-3,self.dimension))
+        inputs = np.concatenate([inputs, rest], axis=0)
+        self.random.shuffle(inputs)
+        if serial: 
             solution = self.serial_solve(inputs)
-        elif dense and probabilistic:
+        elif dense and probabilistic: 
             solution = self.probabilistic_dense_solve(inputs)
         elif dense:
             solution = self.dense_solve(inputs)
-        else:
-            solution = self.solve(inputs)
+        else: solution = self.solve(inputs)
+        # Solutions are lists of tuples so old rejection never fires
+        if self.solve(inputs):
+            inputs, solution = self.get_corrupted_instance(corruption_rate, redo, dense, probabilistic=probabilistic, serial=serial)
         return inputs, solution
 
     def get_true_instance(self, dense=True, probabilistic=True, serial=False):
