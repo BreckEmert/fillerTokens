@@ -38,7 +38,8 @@ class Match3():
         elif dense:
             solution = self.dense_solve(inputs)
         else: solution = self.solve(inputs)
-        if (dense and not serial and True in [s for _,s in solution]) or (not dense and solution) or (serial and solution[-1]=='True'):
+        # Solutions are lists of tuples so old rejection never fires
+        if self.solve(inputs):
             inputs, solution = self.get_corrupted_instance(corruption_rate, redo, dense, probabilistic=probabilistic, serial=serial)
         return inputs, solution
 
