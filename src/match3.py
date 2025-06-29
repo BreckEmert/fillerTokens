@@ -21,26 +21,31 @@ class Match3():
         return inputs, solution
     
     def get_corrupted_instance(self, corruption_rate=4/3, redo=True, dense=True, probabilistic=True, serial=False):
-        inputs = self.random.integers(0, self.mod, size=(2,self.dimension))
-        inverses = np.expand_dims(np.mod(self.mod-np.sum(inputs,axis=0), self.mod),0)
-        inputs = np.concatenate([inputs, inverses], axis=0)
-        corruptions = self.random.geometric(1/corruption_rate)
-        corruptions = np.minimum(corruptions, 3)
-        columns = self.random.integers(0, self.dimension, size=corruptions)
-        inputs[:corruptions,columns] = self.random.integers(0, self.mod, size=(corruptions,))
-        rest = self.random.integers(0, self.mod, size=(self.length-3,self.dimension))
-        inputs = np.concatenate([inputs, rest], axis=0)
-        self.random.shuffle(inputs)
-        if serial: 
+        # Solutions are lists of tuples so old rejection never fires
+        def _make_candidate():
+            inputs = self.random.integers(0, self.mod, size=(2,self.dimension))
+            inverses = np.expand_dims(np.mod(self.mod-np.sum(inputs,axis=0), self.mod),0)
+            inputs = np.concatenate([inputs, inverses], axis=0)
+            corruptions = self.random.geometric(1/corruption_rate)
+            corruptions = np.minimum(corruptions, 3)
+            columns = self.random.integers(0, self.dimension, size=corruptions)
+            inputs[:corruptions,columns] = self.random.integers(0, self.mod, size=(corruptions,))
+            rest = self.random.integers(0, self.mod, size=(self.length-3,self.dimension))
+            inputs = np.concatenate([inputs, rest], axis=0)
+            self.random.shuffle(inputs)
+            return inputs
+        
+        inputs = _make_candidate()
+        while self.solve(inputs):  # Regenerate until False
+            inputs = _make_candidate()
+
+        if serial:
             solution = self.serial_solve(inputs)
         elif dense and probabilistic: 
             solution = self.probabilistic_dense_solve(inputs)
         elif dense:
             solution = self.dense_solve(inputs)
         else: solution = self.solve(inputs)
-        # Solutions are lists of tuples so old rejection never fires
-        if self.solve(inputs):
-            inputs, solution = self.get_corrupted_instance(corruption_rate, redo, dense, probabilistic=probabilistic, serial=serial)
         return inputs, solution
 
     def get_true_instance(self, dense=True, probabilistic=True, serial=False):
@@ -71,9 +76,9 @@ class Match3():
             # This version outputs a random match2 sum, or index of matched if it's matched
             labels = []
             for t,tup in enumerate(inputs):
+                # Breck - not sure if this still leaks at mod>10
                 if t==self.length-1:
-                    ind = self.random.choice(self.dimension)
-                    labels.append((str(t),'F'+str(tup[ind])))
+                    labels.append((str(t), 'F' + str(self.random.integers(0, self.mod))))
                     break
 
                 #enumerate over pairs of tuples, combine tup with all inputs after it
@@ -92,12 +97,16 @@ class Match3():
 
                     ind = self.random.choice(self.dimension)
                     sum_ind = sums[i][ind]
-                    if self.random.binomial(1,0.5)==1: #Randomly include one position of the 2SUM summands
-                        if found!=-1: labels.append((str(t),'-'+str(found))) #'-' signifies match, positional encoding of 3rd summand reported
-                        else: labels.append((str(t),'F'+str(sum_ind))) #If no match found label includes one of the 2SUM digits
+                    # Breck - emit matching index if found, random index if not
+                    # If we do not do this all two-digit indices can only occur in True
+                    if self.random.binomial(1,0.5)==1:
+                        target = found if found != -1 else self.random.integers(0, len(inputs))
+                        prefix = '-' if found != -1 else 'F'
+                        labels.append((str(t), prefix + str(target)))
                     else:
-                        if found!=-1: labels.append((str(i+t+1),'-'+str(found)))
-                        else: labels.append((str(i+t+1),'F'+str(sum_ind)))
+                        target = found if found != -1 else self.random.integers(0, len(inputs))
+                        prefix = '-' if found != -1 else 'F'
+                        labels.append((str(i+t+1), prefix + str(target)))
             return labels
     
     def serial_solve(self, inputs):
@@ -130,6 +139,7 @@ class Match3():
                             break
                     if three_sum: break
                 if three_sum: break
+            if three_sum: break  # Breck - was missing this for minimal length
         labels.append(str(three_sum))
         return labels
 
