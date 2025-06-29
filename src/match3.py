@@ -73,7 +73,7 @@ class Match3():
             for t,tup in enumerate(inputs):
                 if t==self.length-1:
                     ind = self.random.choice(self.dimension)
-                    labels.append((str(t),'F'+str(sums[i][ind])))
+                    labels.append((str(t),'F'+str(tup[ind])))
                     break
 
                 #enumerate over pairs of tuples, combine tup with all inputs after it
