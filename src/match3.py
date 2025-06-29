@@ -169,9 +169,9 @@ def rand_cot(inputs, solution_list,): #rand_schedule_cot_string
     st += ' P '
     for ind1,subsoln in solution_list: 
         if subsoln[0]=='-':
-            st += ind1+'-'+' '+str(subsoln[1:])+'-'+' '
+            st += ind1+'-'+str(subsoln[1:])+'-'+' '
         elif subsoln[0]=='F':
-            st += ind1+'-'+' '+subsoln[1:]+' '
+            st += ind1+'-'+subsoln[1:]+' '
         else:
             print(subsoln[-1])
             raise ValueError('Unexpected subsoln')
@@ -224,7 +224,7 @@ def GenerateMatch3Dataset(name, train_samples=int(1e4), test_samples=int(1e3),
     filler_vec = randomizer.choice([0, 1, 2], p=[cot_rate, filler_rate, no_filler_rate], size=train_samples+test_samples) #0 is cot, 1 is filler, 2 is no filler
 
     matcher = Match3(dimension, mod, length)
-    filler_length = length**2
+    filler_length = (length * (length - 1)) // 2
 
     dataset = []
     for i in range(train_samples+test_samples):
