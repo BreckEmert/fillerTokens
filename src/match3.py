@@ -169,7 +169,7 @@ def rand_cot(inputs, solution_list,): #rand_schedule_cot_string
     st += ' P '
     for ind1,subsoln in solution_list: 
         if subsoln[0]=='-':
-            st += ind1+'-'+str(subsoln[1:])+'-'+' '
+            st += ind1+'-'+str(subsoln[1:])+' '
         elif subsoln[0]=='F':
             st += ind1+'-'+subsoln[1:]+' '
         else:
