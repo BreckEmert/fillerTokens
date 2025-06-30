@@ -28,7 +28,8 @@ class Match3():
             inputs = np.concatenate([inputs, inverses], axis=0)
             corruptions = self.random.geometric(1/corruption_rate)
             corruptions = np.minimum(corruptions, 3)
-            columns = self.random.integers(0, self.dimension, size=corruptions)
+            # Breck- if we don't do replace=False the tuple we thought we got rid of can stay:
+            columns = self.random.choice(self.dimension, size=corruptions, replace=False)
             inputs[:corruptions,columns] = self.random.integers(0, self.mod, size=(corruptions,))
             rest = self.random.integers(0, self.mod, size=(self.length-3,self.dimension))
             inputs = np.concatenate([inputs, rest], axis=0)
@@ -36,7 +37,8 @@ class Match3():
             return inputs
         
         inputs = _make_candidate()
-        while self.solve(inputs):  # Regenerate until False
+        # Breck - regenerate until False BUT allow some - appear in false examples
+        while self.solve(inputs) and self.random.random() < 0.8:
             inputs = _make_candidate()
 
         if serial:
@@ -74,11 +76,17 @@ class Match3():
     
     def probabilistic_dense_solve(self, inputs):
             # This version outputs a random match2 sum, or index of matched if it's matched
+            def _make_entry(found, idx, sum_ind):
+                if found != -1:
+                    return str(idx), '-' + str(found)
+                else:
+                    return str(idx), 'F' + str(sum_ind % 10)
+
             labels = []
             for t,tup in enumerate(inputs):
                 # Breck - not sure if this still leaks at mod>10
                 if t==self.length-1:
-                    labels.append((str(t), 'F' + str(self.random.integers(0, self.mod))))
+                    labels.append((str(t), 'F' + str(self.random.integers(0, 10))))
                     break
 
                 #enumerate over pairs of tuples, combine tup with all inputs after it
@@ -100,13 +108,15 @@ class Match3():
                     # Breck - emit matching index if found, random index if not
                     # If we do not do this all two-digit indices can only occur in True
                     if self.random.binomial(1,0.5)==1:
-                        target = found if found != -1 else self.random.integers(0, len(inputs))
-                        prefix = '-' if found != -1 else 'F'
-                        labels.append((str(t), prefix + str(target)))
+                        if found != -1:
+                            labels.append(_make_entry(found, t, sum_ind))
+                        else:
+                            labels.append(_make_entry(-1, t, sum_ind))
                     else:
-                        target = found if found != -1 else self.random.integers(0, len(inputs))
-                        prefix = '-' if found != -1 else 'F'
-                        labels.append((str(i+t+1), prefix + str(target)))
+                        if found != -1:
+                            labels.append(_make_entry(found, i+t+1, sum_ind))
+                        else:
+                            labels.append(_make_entry(-1, i+t+1, sum_ind))
             return labels
     
     def serial_solve(self, inputs):
@@ -175,17 +185,16 @@ def rand_cot(inputs, solution_list,): #rand_schedule_cot_string
     '''
     To string for CoT which randomly include one position of the 2SUM summands 
     '''
-    st = ' ' + ' '.join([cat_row(row) for row in inputs])
+    st = ' ' + ' '.join(cat_row(row) for row in inputs)
     st += ' P '
-    for ind1,subsoln in solution_list: 
-        if subsoln[0]=='-':
-            st += ind1+'-'+str(subsoln[1:])+' '
-        elif subsoln[0]=='F':
-            st += ind1+'-'+subsoln[1:]+' '
+    # Breck - the if/else isn't doing anything unique per condition
+    for ind1, subsoln in solution_list:
+        if subsoln[0] == '-':
+            st += f"{ind1}- {subsoln[1:]}- "
         else:
-            print(subsoln[-1])
-            raise ValueError('Unexpected subsoln')
-    st += 'A ' + str(any(['-' in s[-1] for s in solution_list]))
+            st += f"{ind1}- {subsoln[1:]} "
+    # Breck - keep prefix ('-' vs 'F') so trace still signals True/False
+    st += 'A ' + str(any('-' in s[-1] for s in solution_list))
     return st
 
 def serial_cot(inputs, solution_list,):
